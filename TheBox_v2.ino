@@ -112,6 +112,7 @@ void setup()
  // to be moved when the box goes live
  // or maybe print gamestatus + welcome (back)
  lcd.setCursor(0,0);
+ // stringToLcd is explained below.
  stringToLCD("Welcome!");
  delay(1000);
  stringToLCD("Initializing...");
@@ -123,10 +124,12 @@ void setup()
  */
  gamestate = EEPROM.read(0);
  // if gamestate is bigger than a certain number, it has not been initiated, so we set it to '1' ('0' would cause an endless loop)
+ // the manual states, that it's set to 255 if not initially set. You can usually just make a small sketch to set the
+ // values instead of guessing like I do.
  if (gamestate > 200 || gamestate == 0) { gamestate = 1; EEPROM.write(0,gamestate); }
 
  tasknr = EEPROM.read(1);
- // if tasknr is bigger than a certain number, it has not been initiated, so we write it back
+ // if tasknr is bigger than a certain number, it has not been initiated, so we write it back - see above
  if (tasknr > 200) { tasknr = 0; EEPROM.write(1,tasknr); }
 
  if (debug) {
@@ -136,48 +139,48 @@ void setup()
 
  /* other settings */
  // we're using the internal PULLUP-resistor
- // when the pin is pulled LOW (to GND) things happen..
+ // when the pin is pulled LOW (to GND) things happen.. (backdoor timer)
  pinMode(BACKDOORPIN,INPUT_PULLUP);
  digitalWrite(BACKDOORPIN,HIGH);
  
- // debug-LED. Should probably be disabled when we go "live"
+ // debug-LED. Should probably be disabled when we go "live" as noone can see it anyway
  pinMode(13,OUTPUT);
  digitalWrite(13,LOW);
 
- /* polulu-pin - pull this one high, and the battery power is cut */
+ /* polulu-pin - pull this one high, and the battery power is cut - has no effect on external power */
  pinMode(POLULUPIN,OUTPUT);
  digitalWrite(POLULUPIN,LOW);
 
- // mastertimer
+ // mastertimer starts here
  mastertimerstart = millis();
 } 
  
 void loop() 
 { 
-  // feed the GPS-object - we're going to do this a few times down the line
-  // re-attach the GPS-module if it's been detached
+  // re-attach the GPS-module if it's been detached, but only if the servo is detached
+  // as the servo will start twitching like crazy if we start talking serial before it detaches
   if (!servoattached && !gpsattached) { 
       nss.begin(9600);
       gpsattached = 1;
   }
-  if (gpsattached) {
-          // feed a few times, to get a good fix.
-          feedgps(); 
-          gps.f_get_position(&flat, &flon, &age);
-  }
-
 
   // detach the servo if timeout after movement is reached
    if (myservo.attached() && millis()-servostart>4000) { 
     myservo.detach();
+    delay(10); // small delay added for safety although tests so far have been good
     servoattached = 0;
     nss.begin(9600); // the servo has been detached, now we can re-enable GPS
   } 
 
+  if (gpsattached) {
+          // feed a few times, to get a good fix, but only if attached
+          feedgps(); 
+          gps.f_get_position(&flat, &flon, &age);
+  }
+
   // listen for backdoor and do various stuff 
   int sensorVal = digitalRead(BACKDOORPIN);
   v = scalea*v + scaleb*sensorVal;
-  //Serial.println(v);
   // start timer if backdoor-pin is activated
   // disable timer if v isn't under threshold
   if (v <= 0.1 && backdoortimerrunning == 0) {
@@ -185,16 +188,18 @@ void loop()
     backdoortimerrunning = 1;
   } else if (v >= 0.1) { backdoortimerrunning = 0; boxopen = 0; }     
   // test for threshold 1 - open and close door
+  // maybe I should do something fancy where I don't open and close the door, when I know I am on my way to a reset? naah.. 
+  // here we pass the timer for the first backdoor that will toggle the lock
   if (backdoortimerrunning && (millis()-backdoortimerstart >= backdoortimeout1) && (millis()-backdoortimerstart <= backdoortimeout2) && !boxopen) {
     boxopen = 1;
-    if (debug)
-      Serial.println("box is opened");
     nss.end(); // stop talking to the GPS
     delay(250);
-    gpsattached = 0;
-    unlockbox();
+    gpsattached = 0; // servo will only be attached if the GPS is 'detached'
+    unlockbox(); // opens the servo
+    if (debug)
+      Serial.println("box is opened");
     delay(5000); // I have this much time to open the box
-    lockbox();
+    lockbox(); // closes the servo
   } else if (backdoortimerrunning && (millis()-backdoortimerstart >= backdoortimeout2) && !gamereset) { // test for threshold 2
     gamereset = 1;
     // reset gamestatus to '1'
@@ -209,11 +214,10 @@ void loop()
     gamestate = 0; tasknr = 1;
     if (debug) 
       Serial.println("box has been reset");
-      if (debug) {
       Serial.print("Gamestate changed: ");
       Serial.println(gamestate);
     }
-    digitalWrite(POLULUPIN,HIGH);
+    digitalWrite(POLULUPIN,HIGH); // try and turn off, even though I know this is in vain on aux power
     delay(100);
   } 
 
@@ -223,6 +227,7 @@ void loop()
   }
 
 
+   // here we do a switch on the gamestate to decide what to do
    switch(gamestate) {
     case 0: // game has just been reset - lock the box and shut down - states have been written above
        if (debug) {
@@ -232,14 +237,14 @@ void loop()
        lcd.clear();
        lcd.print("box reset and will ");
        lcd.print("lock in 3 seconds");
-       lcd.setCursor(0,3);lcd.print(gamestate);lcd.print(",");lcd.print(tasknr);lcd.print(millis());
+       if (debug) { lcd.setCursor(0,3);lcd.print(gamestate);lcd.print(",");lcd.print(tasknr);lcd.print(millis()); }
        nss.end(); // "detach" the GPS before operating the servo
        gpsattached = 0;
-       delay(3000); 
+       delay(3000);  // the 3 second delay
        lockbox();
-       digitalWrite(POLULUPIN,HIGH);
+       digitalWrite(POLULUPIN,HIGH); // try and turn off (but it's still on aux power, I know ))
        delay(100);
-       gamestate = 3;   
+       gamestate = 3; 
        break; 
     case 1: // the game is running
         if (millis()-mastertimerstart <= timeout) {
@@ -258,6 +263,8 @@ void loop()
           s=int(over/1000);
           ms=over%1000;
           // .. && gamestate = "running" skal der tilføjes .. eller noed
+          // .. && !inbetweentasks - the countdown shows up for a tiny bit between steps, so I will add this
+          // when I am actually awake
           if (millis()-previousMillis >= interval && remaindertime >= 0 && !timeoutreached) {
             lcd.setCursor(0,3);
             if (m < 10) { lcd.print("0"); }
@@ -289,13 +296,11 @@ void loop()
             }
           }
         }
-        // feed the GPS-object - we're going to do this a few times down the line
         // re-attach the GPS-module if it's been detached
         if (!servoattached && !gpsattached) { 
             nss.begin(9600);
             gpsattached = 1;
         }
-
         if (gpsattached) {
                 // feed a few times, to get a good fix.
                 feedgps(); 
@@ -306,6 +311,7 @@ void loop()
             case 0: // welcome message and first mission - we're not showing this unless we actually have a GPS fix
                   if (age < 1000) { 
                       unsigned long distance = gps.distance_between(flat,flon,LABI_LAT,LABI_LON);
+                      // are we within 1000m? (could probably be set lower to make it more exciting)
                       if (distance < 1000) {
                          lcd.clear();
                          stringToLCD("You made it to Labitat!"); 
