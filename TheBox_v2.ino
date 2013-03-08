@@ -15,7 +15,7 @@ SoftwareSerial nss(6,7);
 /*
  * LCD RS pin to A1
  * LCD Enable pin to A0
- * LCD Vo to digitail pin 3
+ * LCD Vo to digital pin 3
  * LCD D4 pin to digital pin 12
  * LCD D5 pin to digital pin 11
  * LCD D6 pin to digital pin 10
@@ -23,50 +23,57 @@ SoftwareSerial nss(6,7);
  * LCD R/W pin to ground
 */
 LiquidCrystal lcd(A1, A0, 12, 11, 10, 9);
-//VarSpeedServo myservo;
+
 Servo myservo;
 long previousMillis;
 int interval = 1000;
 
-int SERVOPIN = 8;
-long int servostart;
+int SERVOPIN = 8; 
+long int servostart; // timer to keep track of the servo
 
-// reed switch is attached to this pin
+// reed switch is attached to this pin - hint: back door
 int BACKDOORPIN = 4;
 // polulu power switch is on this pin
 int POLULUPIN = 2;
 
 // scale stuff for backdoor timer
 // used both for backdoor and reset-functionality
+// with scales, I am sure that the switch is triggered constantly when I start the backdoor timers
 float v = 1; // init
 float scalea = 0.99;
 float scaleb = 0.01;
 // timer for backdoor and reset 
-typedef long int longjohn;  // Riiiis er fjollet 
-longjohn unsigned backdoortimeout1 = 2000; // efter den her tid toggler servoen til åben og tilbage til lukket
-longjohn unsigned backdoortimeout2 = 25000; // efter den her tid nulstilles gamestatus - skal nok være 25 sekunder eller noget
-                                       // så det er lettest at gøre det 'inde fra'
+typedef long int longjohn;  // declaring my own long int, just because we joke around with the name 'John' in Labitat.. 
+// After this time, the servo will toggle open and then back to locked - will have to be prolonged to prevent accidental opening
+longjohn unsigned backdoortimeout1 = 2000; 
+// fter this time, the gamestatus will reset - this will need to be prolonged so it can only be triggered on external power
+// and/or when the box is programmed with cable when opened.
+longjohn unsigned backdoortimeout2 = 25000; 
+// keeps track of when the backdoor switch is triggered                                     
 longjohn unsigned backdoortimerstart;
 
+// is the backdoor timer running?
 int backdoortimerrunning = 0;
+// set to 1 when the box is open
 int boxopen = 0;
+// set to 1 when the backdoor timer reaches backdoor timer2 and this is still 0 - is then being set to 1 to trigger the actual reset
 int gamereset = 0;
 
-longjohn unsigned mastertimerstart;
+longjohn unsigned mastertimerstart; // the master timer is used to see if we're timing out on the GPS signal
 // mastertimer = timeout
 long unsigned int timeout = 70000; // how long will we wait for the GPS (should be 1½ minute or so)?
 int timeoutreached = 0;
-int powermessage = 0;
+int powermessage = 0; // keeps track of wether or not we've displayed a message after timeout and shutdown should have occured (displayed when on external power)
 
-int debug = 0;
-int debug2 = 0;
+int debug = 0; // enables serial debug
+int debug2 = 0; // additional serial debug
 /*
 ***** storyline-array
+***** I might use this .. or not. Not sure yet.
 */
 char* storyline[] = {"Follow the instruc- tions from this box",
   " ",
 };
-
 
 /* GPS-related variables */
 float flat, flon;
@@ -75,34 +82,32 @@ int year;
 byte month, day, hour, minute, second, hundredths;
 char datechar[10];
 unsigned short sentences = 0, failed = 0;
+// coordinates for the various locations for the puzzle box to go
 static const float LONDON_LAT = 51.508131, LONDON_LON = -0.128002;
 static const float NNIT_LAT = 55.73558, NNIT_LON = 12.47504;
 static const float LABI_LAT = 55.676235, LABI_LON = 12.54561;
 static const float HOME_LAT = 55.91461, HOME_LON = 12.49487;
 
+// to prevent usage of the old Servo library, I am instead making sure, that I only talt to one of 
+// Software Serial or the Servo at a time. These two flags keep check of that.
 // only one can be 'attached' at the time
 bool servoattached = 0;
 bool gpsattached = 1;
 
 /* declare gamestate and tasknr */
-int gamestate;
-int tasknr;
+int gamestate; // RUNNING, etc.
+int tasknr; // which location will we go to next?
 
 /* setup */
 void setup() 
 { 
- nss.begin(9600);
+ nss.begin(9600); // initiate SoftwareSerial, which we use to talk to the GPS
  if (debug)
    Serial.begin(115200);
-/*
- // the contrast is run by software - OUTDATED
- delay(100); 
- pinMode(3,OUTPUT);
- analogWrite(3,50);
-digitalWrite(3,HIGH); 
-*/
+
  // set up the LCD's number of columns and rows: 
  lcd.begin(20, 4);
+
  // Print a message to the LCD.
  // to be moved when the box goes live
  // or maybe print gamestatus + welcome (back)
@@ -230,9 +235,8 @@ void loop()
        lcd.setCursor(0,3);lcd.print(gamestate);lcd.print(",");lcd.print(tasknr);lcd.print(millis());
        nss.end(); // "detach" the GPS before operating the servo
        gpsattached = 0;
-       delay(250);
-       lockbox();
        delay(3000); 
+       lockbox();
        digitalWrite(POLULUPIN,HIGH);
        delay(100);
        gamestate = 3;   
