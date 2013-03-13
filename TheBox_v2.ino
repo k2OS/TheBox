@@ -65,7 +65,7 @@ long unsigned int timeout = 70000; // how long will we wait for the GPS (should 
 int timeoutreached = 0;
 int powermessage = 0; // keeps track of wether or not we've displayed a message after timeout and shutdown should have occured (displayed when on external power)
 
-int debug = 0; // enables serial debug
+int debug = 1; // enables serial debug
 int debug2 = 0; // additional serial debug
 /*
 ***** storyline-array
@@ -170,37 +170,37 @@ void loop()
     delay(10); // small delay added for safety although tests so far have been good
     servoattached = 0;
     nss.begin(9600); // the servo has been detached, now we can re-enable GPS
-  } 
+   } 
 
-  if (gpsattached) {
+   if (gpsattached) {
           // feed a few times, to get a good fix, but only if attached
           feedgps(); 
           gps.f_get_position(&flat, &flon, &age);
-  }
+   }
 
-  // listen for backdoor and do various stuff 
-  int sensorVal = digitalRead(BACKDOORPIN);
-  v = scalea*v + scaleb*sensorVal;
-  // start timer if backdoor-pin is activated
-  // disable timer if v isn't under threshold
-  if (v <= 0.1 && backdoortimerrunning == 0) {
-    backdoortimerstart = millis();
-    backdoortimerrunning = 1;
-  } else if (v >= 0.1) { backdoortimerrunning = 0; boxopen = 0; }     
-  // test for threshold 1 - open and close door
-  // maybe I should do something fancy where I don't open and close the door, when I know I am on my way to a reset? naah.. 
-  // here we pass the timer for the first backdoor that will toggle the lock
-  if (backdoortimerrunning && (millis()-backdoortimerstart >= backdoortimeout1) && (millis()-backdoortimerstart <= backdoortimeout2) && !boxopen) {
-    boxopen = 1;
-    nss.end(); // stop talking to the GPS
-    delay(250);
-    gpsattached = 0; // servo will only be attached if the GPS is 'detached'
-    unlockbox(); // opens the servo
-    if (debug)
-      Serial.println("box is opened");
-    delay(5000); // I have this much time to open the box
-    lockbox(); // closes the servo
-  } else if (backdoortimerrunning && (millis()-backdoortimerstart >= backdoortimeout2) && !gamereset) { // test for threshold 2
+   // listen for backdoor and do various stuff 
+   int sensorVal = digitalRead(BACKDOORPIN);
+   v = scalea*v + scaleb*sensorVal;
+   // start timer if backdoor-pin is activated
+   // disable timer if v isn't under threshold
+   if (v <= 0.1 && backdoortimerrunning == 0) {
+     backdoortimerstart = millis();
+     backdoortimerrunning = 1;
+   } else if (v >= 0.1) { backdoortimerrunning = 0; boxopen = 0; }     
+   // test for threshold 1 - open and close door
+   // maybe I should do something fancy where I don't open and close the door, when I know I am on my way to a reset? naah.. 
+   // here we pass the timer for the first backdoor that will toggle the lock
+   if (backdoortimerrunning && (millis()-backdoortimerstart >= backdoortimeout1) && (millis()-backdoortimerstart <= backdoortimeout2) && !boxopen) {
+     boxopen = 1;
+     nss.end(); // stop talking to the GPS
+     delay(250);
+     gpsattached = 0; // servo will only be attached if the GPS is 'detached'
+     unlockbox(); // opens the servo
+     if (debug)
+       Serial.println("box is opened");
+     delay(5000); // I have this much time to open the box
+     lockbox(); // closes the servo
+   } else if (backdoortimerrunning && (millis()-backdoortimerstart >= backdoortimeout2) && !gamereset) { // test for threshold 2
     gamereset = 1;
     // reset gamestatus to '1'
     // reset tasknr to '0'
