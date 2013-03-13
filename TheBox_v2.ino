@@ -83,12 +83,12 @@ byte month, day, hour, minute, second, hundredths;
 char datechar[10];
 unsigned short sentences = 0, failed = 0;
 // coordinates for the various locations for the puzzle box to go
-static const float LONDON_LAT = 51.508131, LONDON_LON = -0.128002;
-static const float NNIT_LAT = 55.73558, NNIT_LON = 12.47504;
-static const float LABI_LAT = 55.676235, LABI_LON = 12.54561;
-static const float HOME_LAT = 55.91461, HOME_LON = 12.49487;
 
-// to prevent usage of the old Servo library, I am instead making sure, that I only talt to one of 
+static const float NNIT_LAT = 55.73558, NNIT_LON = 12.47504; // coordinates for my place of work
+static const float LABI_LAT = 55.676235, LABI_LON = 12.54561; // coordinates of Labitat
+static const float HOME_LAT = 55.91461, HOME_LON = 12.49487; // coordinates of home
+
+// to prevent usage of the old Servo library, I am instead making sure, that I only talk to one of 
 // Software Serial or the Servo at a time. These two flags keep check of that.
 // only one can be 'attached' at the time
 bool servoattached = 0;
@@ -155,16 +155,15 @@ void setup()
  mastertimerstart = millis();
 } 
  
-void loop() 
-{ 
+void loop() { 
   // re-attach the GPS-module if it's been detached, but only if the servo is detached
   // as the servo will start twitching like crazy if we start talking serial before it detaches
-  if (!servoattached && !gpsattached) { 
+   if (!servoattached && !gpsattached) { 
       nss.begin(9600);
       gpsattached = 1;
-  }
+   }
 
-  // detach the servo if timeout after movement is reached
+   // detach the servo if timeout after movement is reached
    if (myservo.attached() && millis()-servostart>4000) { 
     myservo.detach();
     delay(10); // small delay added for safety although tests so far have been good
@@ -212,7 +211,7 @@ void loop()
     lcd.print("Game has been reset");
     delay(1000);
     gamestate = 0; tasknr = 1;
-    if (debug) 
+    if (debug) {
       Serial.println("box has been reset");
       Serial.print("Gamestate changed: ");
       Serial.println(gamestate);
