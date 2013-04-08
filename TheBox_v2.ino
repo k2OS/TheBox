@@ -15,7 +15,7 @@ SoftwareSerial nss(6,7);
 /*
  * LCD RS pin to A1
  * LCD Enable pin to A0
- * LCD Vo to digital pin 3
+ * LCD Vo to digital pin 3 (no - resistor to ground instead)
  * LCD D4 pin to digital pin 12
  * LCD D5 pin to digital pin 11
  * LCD D6 pin to digital pin 10
