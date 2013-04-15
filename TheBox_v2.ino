@@ -84,9 +84,20 @@ char datechar[10];
 unsigned short sentences = 0, failed = 0;
 // coordinates for the various locations for the puzzle box to go
 
-static const float NNIT_LAT = 55.73558, NNIT_LON = 12.47504; // coordinates for my place of work
 static const float LABI_LAT = 55.676235, LABI_LON = 12.54561; // coordinates of Labitat
+static const int LABI_THRESHOLD = 40; // required mininum distance to location
+
 static const float HOME_LAT = 55.91461, HOME_LON = 12.49487; // coordinates of home
+static const int HOME_THRESHOLD = 40; // required mininum distance to location
+
+static const float FAABORG_LAT = 55.094878, FAABORG_LON = 10.237732;
+static const int FAABORG_THRESHOLD = 1000; // required minimum distance to Faaborg havn
+
+static const float DAD_LAT = 55.356175, DAD_LON = 10.728353;
+static const int DAD_THRESHOLD = 500; // required minimum distance to DAD 
+
+static const float MOM_LAT = 56.279542, MOM_LON = 9.434083;
+static const int MOM_THRESHOLD = 500;
 
 // to prevent usage of the old Servo library, I am instead making sure, that I only talk to one of 
 // Software Serial or the Servo at a time. These two flags keep check of that.
@@ -115,7 +126,7 @@ void setup()
  // stringToLcd is explained below.
  stringToLCD("Welcome!");
  delay(1000);
- stringToLCD("Initializing...");
+ stringToLCD("Getting signal...");
 
  /*
   read Gamestate, etc. from EEPROM
@@ -197,7 +208,7 @@ void loop() {
      unlockbox(); // opens the servo
      if (debug)
        Serial.println("box is opened");
-     delay(5000); // I have this much time to open the box
+     delay(5000); // I have this much time to open the box - the countdown is 'frozen' during this time (but still runs)
      lockbox(); // closes the servo
    } else if (backdoortimerrunning && (millis()-backdoortimerstart >= backdoortimeout2) && !gamereset) { // test for threshold 2
     gamereset = 1;
@@ -311,7 +322,8 @@ void loop() {
                   if (age < 1000) { 
                       unsigned long distance = gps.distance_between(flat,flon,LABI_LAT,LABI_LON);
                       // are we within 1000m? (could probably be set lower to make it more exciting)
-                      if (distance < 1000) {
+                      // are we within threshold?
+                      if (distance < LABI_THRESHOLD) {
                          lcd.clear();
                          stringToLCD("You made it to Labitat!"); 
                          delay(5000);
@@ -336,11 +348,11 @@ void loop() {
             case 1: // Second mission
                   if (age < 1000) { 
                       unsigned long distance = gps.distance_between(flat,flon,HOME_LAT,HOME_LON);
-                      if (distance < 500) {
+                      if (distance < HOME_THRESHOLD) {
                          lcd.clear();
                          stringToLCD("You made it home!"); 
                          delay(10000);
-                         stringToLCD("Stand by for your next mission");
+                         stringToLCD("Stand by for your   next mission");
                          delay(5000);
                          tasknr++;
                          EEPROM.write(1,tasknr);
@@ -358,8 +370,8 @@ void loop() {
                       }
                   }
             break; 
-            case 2: // Third mission
-              stringToLCD("You've made it through..");
+            case 2: // Third mission will go here
+              stringToLCD("You've made it      through..");
               delay(2000);
               stringToLCD("The box will open...");
               EEPROM.write(0,2); // setting gs to 2
