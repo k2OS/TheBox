@@ -46,7 +46,7 @@ float scaleb = 0.01;
 typedef long int longjohn;  // declaring my own long int, just because we joke around with the name 'John' in Labitat.. 
 // After this time, the servo will toggle open and then back to locked - will have to be prolonged to prevent accidental opening
 longjohn unsigned backdoortimeout1 = 2000; 
-// fter this time, the gamestatus will reset - this will need to be prolonged so it can only be triggered on external power
+// after this time, the gamestatus will reset - this will need to be prolonged so it can only be triggered on external power
 // and/or when the box is programmed with cable when opened.
 longjohn unsigned backdoortimeout2 = 25000; 
 // keeps track of when the backdoor switch is triggered                                     
@@ -66,7 +66,6 @@ int timeoutreached = 0;
 int powermessage = 0; // keeps track of wether or not we've displayed a message after timeout and shutdown should have occured (displayed when on external power)
 
 int debug = 1; // enables serial debug
-int debug2 = 0; // additional serial debug
 /*
 ***** storyline-array
 ***** I might use this .. or not. Not sure yet.
@@ -156,7 +155,7 @@ void setup()
  
  // debug-LED. Should probably be disabled when we go "live" as noone can see it anyway
  pinMode(13,OUTPUT);
- digitalWrite(13,LOW);
+ if (debug) { digitalWrite(13,LOW); }
 
  /* polulu-pin - pull this one high, and the battery power is cut - has no effect on external power */
  pinMode(POLULUPIN,OUTPUT);
@@ -438,7 +437,7 @@ void lockbox() {
  myservo.write(10);
  servostart = millis();
  delay(500);
- digitalWrite(13,LOW);
+ if (debug) { digitalWrite(13,LOW); }
 }
 
 void unlockbox() {
@@ -449,7 +448,7 @@ void unlockbox() {
  myservo.write(90);
  servostart = millis();
  delay(500);
- digitalWrite(13,HIGH);
+ if (debug) { digitalWrite(13,HIGH); }
 }
 
 void stringToLCD(char *stringIn) {
