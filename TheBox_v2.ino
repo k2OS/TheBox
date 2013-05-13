@@ -76,7 +76,7 @@ char* storyline[] = {"Follow the instruc- tions from this box",
 
 /* GPS-related variables */
 float flat, flon;
-unsigned long age, date, time, chars = 0;
+unsigned long age, fix_age, date, time, chars = 0;
 int year;
 byte month, day, hour, minute, second, hundredths;
 char datechar[10];
@@ -185,6 +185,7 @@ void loop() {
           // feed a few times, to get a good fix, but only if attached
           feedgps(); 
           gps.f_get_position(&flat, &flon, &age);
+          gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &fix_age);
    }
 
    // listen for backdoor and do various stuff 
@@ -313,7 +314,8 @@ void loop() {
         if (gpsattached) {
                 // feed a few times, to get a good fix.
                 feedgps(); 
-                gps.f_get_position(&flat, &flon, &age);
+                gps.f_get_position(&flat, &flon, &age); 
+                gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &fix_age);
         }        
         //if (age < 1000), then we probably have a fix
           switch(tasknr) {
@@ -332,11 +334,13 @@ void loop() {
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                           stringToLCD("Go to Labitat and   hack");
+                           stringToLCD("Go to Labitat and   hack.");
                            delay(10000);
                            lcd.clear();
                            lcd.setCursor(0,2);
                            lcd.print("Good Bye");
+                           lcd.setCursor(0,3);
+                           lcd.print(year); lcd.print("-");lcd.print(month);lcd.print("-");lcd.print(day);
                            delay(3000);
                            digitalWrite(POLULUPIN,HIGH);
                            delay(100);
@@ -362,7 +366,9 @@ void loop() {
                            lcd.clear();
                            lcd.setCursor(0,2);
                            lcd.print("Good Bye");
-                           delay(3000);
+                           lcd.setCursor(0,3);
+                           lcd.print(year); lcd.print("-");lcd.print(month);lcd.print("-");lcd.print(day);
+                           delay(5000);
                            digitalWrite(POLULUPIN,HIGH);
                            delay(100);
                            gamestate = 3; // switch to message if running on external power
