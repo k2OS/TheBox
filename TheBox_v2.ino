@@ -59,6 +59,7 @@ int boxopen = 0;
 // set to 1 when the backdoor timer reaches backdoor timer2 and this is still 0 - is then being set to 1 to trigger the actual reset
 int gamereset = 0;
 
+long int start; // timer for letting the gps-object 'feed' more than once
 longjohn unsigned mastertimerstart; // the master timer is used to see if we're timing out on the GPS signal
 // mastertimer = timeout
 long unsigned int timeout = 70000; // how long will we wait for the GPS (should be 1½ minute or so)?
@@ -66,22 +67,14 @@ int timeoutreached = 0;
 int powermessage = 0; // keeps track of wether or not we've displayed a message after timeout and shutdown should have occured (displayed when on external power)
 
 int debug = 1; // enables serial debug
-/*
-***** storyline-array
-***** I might use this .. or not. Not sure yet.
-*/
-char* storyline[] = {"Follow the instruc- tions from this box",
-  " ",
-};
 
 /* GPS-related variables */
 float flat, flon;
-unsigned long age, date, time, chars = 0;
+unsigned long age, date, time;
 int year;
 byte month, day, hour, minute, second, hundredths;
-char datechar[10]; // date to compare against.. but I should probably do it in another way
-// coordinates for the various locations for the puzzle box to go
 
+// coordinates for the various locations for the puzzle box to go
 static const float LABI_LAT = 55.676235, LABI_LON = 12.54561; // coordinates of Labitat
 static const int LABI_THRESHOLD = 40; // required mininum distance to location
 
@@ -178,12 +171,17 @@ void loop() {
     delay(10); // small delay added for safety although tests so far have been good
     servoattached = 0;
     nss.begin(9600); // the servo has been detached, now we can re-enable GPS
+    gpsattached = 1;
    } 
 
    if (gpsattached) {
+          start = millis();
           // feed a few times, to get a good fix, but only if attached
-          feedgps(); 
+          while (millis() - start < 500) {
+            feedgps();
+          } 
           gps.f_get_position(&flat, &flon, &age);
+          gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &age); 
    }
 
    // listen for backdoor and do various stuff 
@@ -313,7 +311,7 @@ void loop() {
                 // feed a few times, to get a good fix.
                 feedgps(); 
                 gps.f_get_position(&flat, &flon, &age); 
-                
+                gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &age); 
         }        
         //if (age < 1000), then we probably have a fix
           switch(tasknr) {
@@ -357,8 +355,6 @@ void loop() {
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                           if (gpsattached) { feedgps(); }
-                           gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &age); 
                            char sz[32];
                            sprintf(sz, "%04d-%02d-%02d", year, month, day);
                            stringToLCD("Go home");
