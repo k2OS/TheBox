@@ -76,11 +76,10 @@ char* storyline[] = {"Follow the instruc- tions from this box",
 
 /* GPS-related variables */
 float flat, flon;
-unsigned long age, fix_age, date, time, chars = 0;
+unsigned long age, date, time, chars = 0;
 int year;
 byte month, day, hour, minute, second, hundredths;
-char datechar[10];
-unsigned short sentences = 0, failed = 0;
+char datechar[10]; // date to compare against.. but I should probably do it in another way
 // coordinates for the various locations for the puzzle box to go
 
 static const float LABI_LAT = 55.676235, LABI_LON = 12.54561; // coordinates of Labitat
@@ -185,7 +184,6 @@ void loop() {
           // feed a few times, to get a good fix, but only if attached
           feedgps(); 
           gps.f_get_position(&flat, &flon, &age);
-          gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &fix_age);
    }
 
    // listen for backdoor and do various stuff 
@@ -232,8 +230,8 @@ void loop() {
   } 
 
   if (debug) {
-     Serial.print("Gamestate (pre gs0): ");
-     Serial.println(gamestate);
+//     Serial.print("Gamestate (pre gs0): ");
+//     Serial.println(gamestate);
   }
 
 
@@ -278,7 +276,7 @@ void loop() {
           if (millis()-previousMillis >= interval && remaindertime >= 0 && !timeoutreached) {
             lcd.setCursor(0,3);
             if (m < 10) { lcd.print("0"); }
-            lcd.print(m); Serial.print(m);
+            lcd.print(m); 
             lcd.print(":"); 
             if (s < 10) { lcd.print("0"); }
             lcd.print(s); 
@@ -315,7 +313,7 @@ void loop() {
                 // feed a few times, to get a good fix.
                 feedgps(); 
                 gps.f_get_position(&flat, &flon, &age); 
-                gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &fix_age);
+                
         }        
         //if (age < 1000), then we probably have a fix
           switch(tasknr) {
@@ -339,8 +337,6 @@ void loop() {
                            lcd.clear();
                            lcd.setCursor(0,2);
                            lcd.print("Good Bye");
-                           lcd.setCursor(0,3);
-                           lcd.print(year); lcd.print("-");lcd.print(month);lcd.print("-");lcd.print(day);
                            delay(3000);
                            digitalWrite(POLULUPIN,HIGH);
                            delay(100);
@@ -361,13 +357,17 @@ void loop() {
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
+                           if (gpsattached) { feedgps(); }
+                           gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &age); 
+                           char sz[32];
+                           sprintf(sz, "%04d-%02d-%02d", year, month, day);
                            stringToLCD("Go home");
-                           delay(2000);
-                           lcd.clear();
+//                           delay(2000);
+                           //lcd.clear();
+                           lcd.setCursor(0,1);
+                           lcd.print(sz);
                            lcd.setCursor(0,2);
                            lcd.print("Good Bye");
-                           lcd.setCursor(0,3);
-                           lcd.print(year); lcd.print("-");lcd.print(month);lcd.print("-");lcd.print(day);
                            delay(5000);
                            digitalWrite(POLULUPIN,HIGH);
                            delay(100);
