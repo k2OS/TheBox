@@ -1,3 +1,7 @@
+// things to test:
+// try with get_datetime along 
+// implement a count of feegps' run (and on how many encode()'s have been done
+
 
 //#include <VarSpeedServo.h>
 #include <Servo.h>
@@ -226,7 +230,11 @@ void loop() {
     digitalWrite(POLULUPIN,HIGH); // try and turn off, even though I know this is in vain on aux power
     delay(100);
   } 
-
+  if (gpsattached) {
+    feedgps();
+    gps.f_get_position(&flat, &flon, &age);
+    gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &age); 
+  }
   if (debug) {
 //     Serial.print("Gamestate (pre gs0): ");
 //     Serial.println(gamestate);
