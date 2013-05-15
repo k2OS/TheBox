@@ -1,7 +1,8 @@
 // things to test:
-// try with get_datetime along 
+// try with get_datetime alone 
 // implement a count of feegps' run (and on how many encode()'s have been done
-
+// counter to be used to see how many time feedgps is called before it is used
+long int debugcounter = 0;
 
 //#include <VarSpeedServo.h>
 #include <Servo.h>
@@ -9,7 +10,7 @@
 #include <TinyGPS.h>
 #include <SoftwareSerial.h>
 #include <EEPROM.h>
-
+#include <Time.h>
 
 TinyGPS gps;
 // rx = 7 (yellow), tx = 6 (white)
@@ -75,8 +76,12 @@ int debug = 1; // enables serial debug
 /* GPS-related variables */
 float flat, flon;
 unsigned long age, date, time;
-int year;
-byte month, day, hour, minute, second, hundredths;
+int Year;
+byte Month, Day, Hour, Minute, Second;
+const int offset = 2; // we're in UTC+2 now
+// holds date-string
+char sz[12];
+
 
 // coordinates for the various locations for the puzzle box to go
 static const float LABI_LAT = 55.676235, LABI_LON = 12.54561; // coordinates of Labitat
@@ -162,8 +167,8 @@ void setup()
 } 
  
 void loop() { 
-  // re-attach the GPS-module if it's been detached, but only if the servo is detached
-  // as the servo will start twitching like crazy if we start talking serial before it detaches
+   // re-attach the GPS-module if it's been detached, but only if the servo is detached
+   // as the servo will start twitching like crazy if we start talking serial before it detaches
    if (!servoattached && !gpsattached) { 
       nss.begin(9600);
       gpsattached = 1;
@@ -179,13 +184,10 @@ void loop() {
    } 
 
    if (gpsattached) {
-          start = millis();
-          // feed a few times, to get a good fix, but only if attached
-          while (millis() - start < 500) {
-            feedgps();
-          } 
-          gps.f_get_position(&flat, &flon, &age);
-          gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &age); 
+          // feed a few times, to get a good fix, but only if attached - we start feeding up to half a second to make sure we get a fix and 
+          // date/time information
+         feedgps();
+         gps.f_get_position(&flat, &flon, &age);
    }
 
    // listen for backdoor and do various stuff 
@@ -229,16 +231,17 @@ void loop() {
     }
     digitalWrite(POLULUPIN,HIGH); // try and turn off, even though I know this is in vain on aux power
     delay(100);
-  } 
-  if (gpsattached) {
-    feedgps();
-    gps.f_get_position(&flat, &flon, &age);
-    gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &age); 
-  }
-  if (debug) {
+   } 
+   if (gpsattached) {
+         // feed a few times, to get a good fix, but only if attached - we start feeding up to half a second to make sure we get a fix and 
+         // date/time information
+         feedgps();
+         gps.f_get_position(&flat, &flon, &age);
+   }
+   if (debug) {
 //     Serial.print("Gamestate (pre gs0): ");
 //     Serial.println(gamestate);
-  }
+   }
 
 
    // here we do a switch on the gamestate to decide what to do
@@ -316,13 +319,23 @@ void loop() {
             gpsattached = 1;
         }
         if (gpsattached) {
-                // feed a few times, to get a good fix.
-                feedgps(); 
-                gps.f_get_position(&flat, &flon, &age); 
-                gps.crack_datetime(&year, &month, &day, &hour, &minute, &second, &hundredths, &age); 
-        }        
+          // feed a few times, to get a good fix, but only if attached - we start feeding up to half a second to make sure we get a fix and 
+          // date/time information
+          feedgps();
+          gps.f_get_position(&flat, &flon, &age);
+          // this is the last run of feedgps before we check for fix etc..
+          // if age is < 1000, we have a fix - so we run feedgps for another 1000ms, to make sure we have
+          // date and time as well (it won't work otherwise)
+          updatedatetime();
+          gps.crack_datetime(&Year, &Month, &Day, &Hour, &Minute, &Second, NULL, &age); 
+
+    setTime(Hour, Minute, Second, Day, Month, Year);
+    adjustTime(offset * SECS_PER_HOUR);
+    sprintf(sz,"%04d-%02d-%02d",year(),month(),day());
+
+        }
         //if (age < 1000), then we probably have a fix
-          switch(tasknr) {
+        switch(tasknr) {
             case 0: // welcome message and first mission - we're not showing this unless we actually have a GPS fix
                   if (age < 1000) { 
                       unsigned long distance = gps.distance_between(flat,flon,LABI_LAT,LABI_LON);
@@ -363,13 +376,11 @@ void loop() {
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                           char sz[32];
-                           sprintf(sz, "%04d-%02d-%02d", year, month, day);
                            stringToLCD("Go home");
-//                           delay(2000);
-                           //lcd.clear();
-                           lcd.setCursor(0,1);
+                           lcd.setCursor(0,3);
                            lcd.print(sz);
+                           delay(2000);
+                           //lcd.clear();
                            lcd.setCursor(0,2);
                            lcd.print("Good Bye");
                            delay(5000);
@@ -494,4 +505,13 @@ static bool feedgps()
       return true;
   }
   return false;
+}
+
+// this functions takes a second to complete, but is only called when the 'age' paramater returned GPS is less than 1000 
+// (when we have a fix)
+void updatedatetime() {
+         start = millis();
+         while (millis() - start < 1000) {
+            feedgps();
+         }
 }
