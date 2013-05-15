@@ -20,7 +20,7 @@ SoftwareSerial nss(6,7);
 /*
  * LCD RS pin to A1
  * LCD Enable pin to A0
- * LCD Vo to digital pin 3 (no - resistor to ground instead)
+ * LCD Vo to digital pin 3 (no - resistor to vcc instead)
  * LCD D4 pin to digital pin 12
  * LCD D5 pin to digital pin 11
  * LCD D6 pin to digital pin 10
@@ -290,6 +290,7 @@ void loop() {
             if (s < 10) { lcd.print("0"); }
             lcd.print(s); 
             previousMillis = millis();
+            if (debug) { Serial.print(".");
           } else if (remaindertime <= 0) { lcd.setCursor(0,3); lcd.print("      "); }
         }
         if (millis()-mastertimerstart >= timeout) {
@@ -377,8 +378,11 @@ void loop() {
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
                            stringToLCD("Go home");
-                           lcd.setCursor(0,3);
-                           lcd.print(sz);
+                           if (debug) { 
+                             time_t t = now();
+                             lcd.setCursor(0,3);   
+                             lcd.print(t);
+                           }
                            delay(2000);
                            //lcd.clear();
                            lcd.setCursor(0,2);
@@ -390,7 +394,23 @@ void loop() {
                       }
                   }
             break; 
-            case 2: // Third mission will go here
+/*            case 2: // 3rd mission
+              // test on the date - are we on or after the correct date, go ahead an open
+              // - otherwise tell the user to wait for the correct date
+              // we alreday have the date set in the Time module (.. somewhere in the belly of the arduino)
+              // so we need to see if the year, month and date is correct
+              {
+                time_t t = now();
+                lcd.clear();
+                lcd.print(t);
+              delay(5000);
+              stringToLCD("Stand by for your   next mission");
+              delay(5000);
+              tasknr++;
+              EEPROM.write(1,tasknr);
+              }
+            break; */
+            case 2: // 3rd mission will go here (hooray, you're done!)
               stringToLCD("You've made it      through..");
               delay(2000);
               stringToLCD("The box will open...");
@@ -398,11 +418,9 @@ void loop() {
               delay(3000);
               gamestate = 2;
             break; 
-            case 3: // 4th mission
-            break; 
         }
         break;
-    case 2: 
+    case 2: // the game is over - time to open the box 
          if (debug) {
            Serial.print("Gamestate (gs2): ");
            Serial.println(gamestate);
@@ -442,8 +460,6 @@ void loop() {
      break;
    }
  
- 
-
 } 
 
 /* 
