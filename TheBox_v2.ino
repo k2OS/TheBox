@@ -79,9 +79,6 @@ unsigned long age, date, time;
 int Year;
 byte Month, Day, Hour, Minute, Second;
 const int offset = 2; // we're in UTC+2 now
-// holds date-string
-char sz[12];
-
 
 // coordinates for the various locations for the puzzle box to go
 static const float LABI_LAT = 55.676235, LABI_LON = 12.54561; // coordinates of Labitat
@@ -99,6 +96,19 @@ static const int DAD_THRESHOLD = 500; // required minimum distance to DAD
 static const float MOM_LAT = 56.279542, MOM_LON = 9.434083;
 static const int MOM_THRESHOLD = 500;
 
+static const float LOKATION01_LAT = 55.648910, LOKATION02_LON = 12.554195; // Illutron
+static const int LOKATION01_THRESHOLD = 200;
+
+
+// dateline to cross before the box can be opened
+int cutyear = 2013;
+int cutmonth = 5;
+int cutday = 18;
+int cuthour = 14;
+int cutminute = 0;
+time_t rightnow;
+time_t cutoff;
+
 // to prevent usage of the old Servo library, I am instead making sure, that I only talk to one of 
 // Software Serial or the Servo at a time. These two flags keep check of that.
 // only one can be 'attached' at the time
@@ -115,6 +125,18 @@ void setup()
  nss.begin(9600); // initiate SoftwareSerial, which we use to talk to the GPS
  if (debug)
    Serial.begin(115200);
+
+// initiate tm
+tmElements_t tm;
+tm.Second = 0;
+tm.Minute = cutminute;
+tm.Hour = cuthour;
+tm.Wday = NULL;
+tm.Day = cutday;
+tm.Month = cutmonth;
+tm.Year = cutyear-1970;
+cutoff = makeTime(tm);
+
 
  // set up the LCD's number of columns and rows: 
  lcd.begin(20, 4);
@@ -175,7 +197,7 @@ void loop() {
    }
 
    // detach the servo if timeout after movement is reached
-   if (myservo.attached() && millis()-servostart>4000) { 
+   if (myservo.attached() && millis()-servostart > 4000) { 
     myservo.detach();
     delay(10); // small delay added for safety although tests so far have been good
     servoattached = 0;
@@ -198,6 +220,9 @@ void loop() {
    if (v <= 0.1 && backdoortimerrunning == 0) {
      backdoortimerstart = millis();
      backdoortimerrunning = 1;
+     if (debug) {
+         Serial.println("backdoor timer started");
+     }
    } else if (v >= 0.1) { backdoortimerrunning = 0; boxopen = 0; }     
    // test for threshold 1 - open and close door
    // maybe I should do something fancy where I don't open and close the door, when I know I am on my way to a reset? naah.. 
@@ -258,93 +283,94 @@ void loop() {
        nss.end(); // "detach" the GPS before operating the servo
        gpsattached = 0;
        delay(3000);  // the 3 second delay
-       lockbox();
+       lockbox(); // redundant - the box is at this point locked as the lock cycles during the first part of the backdoor-session
        digitalWrite(POLULUPIN,HIGH); // try and turn off (but it's still on aux power, I know ))
        delay(100);
        gamestate = 3; 
        break; 
     case 1: // the game is running
+          // the count down thingy while we're searching for signal
+          // - should probably be disabled when we're changing locations.. 
+          // maybe a 'showcountdown'-variable that is set to off just before the last step?
         if (millis()-mastertimerstart <= timeout) {
-          // print current millis on the bottom of the LCD
-          // timeout-millis()
-          // only if we're not timed out
-//          unsigned long remaindertime = timeout-millis();
-          unsigned long remaindertime = timeout-millis()+mastertimerstart;
-          long h,m,s,ms;
-          unsigned long over;
-          unsigned long elapsed=remaindertime;
-          h=int(elapsed/3600000);
-          over=elapsed%3600000;
-          m=int(over/60000);
-          over=over%60000;
-          s=int(over/1000);
-          ms=over%1000;
-          // .. && gamestate = "running" skal der tilføjes .. eller noed
-          // .. && !inbetweentasks - the countdown shows up for a tiny bit between steps, so I will add this
-          // when I am actually awake
-          if (millis()-previousMillis >= interval && remaindertime >= 0 && !timeoutreached) {
-            lcd.setCursor(0,3);
-            if (m < 10) { lcd.print("0"); }
-            lcd.print(m); 
-            lcd.print(":"); 
-            if (s < 10) { lcd.print("0"); }
-            lcd.print(s); 
-            previousMillis = millis();
-            if (debug) { Serial.print("."); }
-          } else if (remaindertime <= 0) { lcd.setCursor(0,3); lcd.print("      "); }
+            // print current millis on the bottom of the LCD
+            // timeout-millis()
+            // only if we're not timed out
+            unsigned long remaindertime = timeout-millis()+mastertimerstart;
+            long h,m,s,ms;
+            unsigned long over;
+            unsigned long elapsed=remaindertime;
+            h=int(elapsed/3600000);
+            over=elapsed%3600000;
+            m=int(over/60000);
+            over=over%60000;
+            s=int(over/1000);
+            ms=over%1000;
+            // .. && gamestate = "running" skal der tilføjes .. eller noed
+            // .. && !inbetweentasks - the countdown shows up for a tiny bit between steps, so I will add this
+            // when I am actually awake
+              if (millis()-previousMillis >= interval && remaindertime >= 0 && !timeoutreached) {
+                lcd.setCursor(0,3);
+                if (m < 10) { lcd.print("0"); }
+                lcd.print(m); 
+                lcd.print(":"); 
+                if (s < 10) { lcd.print("0"); }
+                lcd.print(s); 
+                previousMillis = millis();
+                if (debug) { lcd.print("GPS age: ");lcd.print(age); }
+              } else if (remaindertime <= 0) { lcd.setCursor(0,3); lcd.print("      "); }
         }
         if (millis()-mastertimerstart >= timeout) {
-          if (!timeoutreached) {
-            lcd.clear();
-            lcd.setCursor(0,1);
-            lcd.print("No signal - Good Bye");
-            if (debug)
-              Serial.println("Timeout reached - good bye!");
-            delay(2000);
-            // pull polulu high etc.
-            digitalWrite(POLULUPIN,HIGH);
-            // set gamestate to the limbo-state where we just wait for power to go (or the reset)
-            timeoutreached = 1;
-          } else if (timeoutreached && !powermessage){
-            // wait a while then ask to have power removed - we have to set a flag so this step is detected alone
-            gamestate = 3;
-            if (debug) {
-               Serial.print("Gamestate changed: ");
-               Serial.println(gamestate);
+            if (!timeoutreached) {
+              lcd.clear();
+              lcd.setCursor(0,1);
+              lcd.print("No signal - Good Bye");
+              if (debug)
+                Serial.println("Timeout reached - good bye!");
+              delay(2000);
+              // pull polulu high etc.
+              digitalWrite(POLULUPIN,HIGH);
+              // set gamestate to the limbo-state where we just wait for power to go (or the reset)
+              timeoutreached = 1;
+            } else if (timeoutreached && !powermessage){
+              // wait a while then ask to have power removed - we have to set a flag so this step is detected alone
+              gamestate = 3;
+              if (debug) {
+                 Serial.print("Gamestate changed: ");
+                 Serial.println(gamestate);
+              }
             }
-          }
         }
-        // re-attach the GPS-module if it's been detached
+          // re-attach the GPS-module if it's been detached
         if (!servoattached && !gpsattached) { 
             nss.begin(9600);
             gpsattached = 1;
         }
         if (gpsattached) {
-          // feed a few times, to get a good fix, but only if attached - we start feeding up to half a second to make sure we get a fix and 
-          // date/time information
-          feedgps();
-          gps.f_get_position(&flat, &flon, &age);
-          // this is the last run of feedgps before we check for fix etc..
-          // if age is < 1000, we have a fix - so we run feedgps for another 1000ms, to make sure we have
-          // date and time as well (it won't work otherwise)
-          updatedatetime();
-          gps.crack_datetime(&Year, &Month, &Day, &Hour, &Minute, &Second, NULL, &age); 
-
-    setTime(Hour, Minute, Second, Day, Month, Year);
-    adjustTime(offset * SECS_PER_HOUR);
-    sprintf(sz,"%04d-%02d-%02d",year(),month(),day());
-
+            // feed a few times, to get a good fix, but only if attached - we start feeding up to half a second to make sure we get a fix and 
+            // date/time information
+            feedgps();
+            gps.f_get_position(&flat, &flon, &age);
+            // this is the last run of feedgps before we check for fix etc..
+            // if age is < 1000, we have a fix - so we run feedgps for another 1000ms, to make sure we have
+            // date and time as well (it won't work otherwise)
+            //if (age < 1000), then we probably have a fix and so we find the current time etc.
+            if (age < 1000) {
+              updatedatetime(); // runs for 1000ms to make sure we have date-time correct
+              gps.crack_datetime(&Year, &Month, &Day, &Hour, &Minute, &Second, NULL, &age); 
+              setTime(Hour, Minute, Second, Day, Month, Year);
+              adjustTime(offset * SECS_PER_HOUR);
+              rightnow = now();
+            }
         }
-        //if (age < 1000), then we probably have a fix
         switch(tasknr) {
             case 0: // welcome message and first mission - we're not showing this unless we actually have a GPS fix
                   if (age < 1000) { 
-                      unsigned long distance = gps.distance_between(flat,flon,LABI_LAT,LABI_LON);
+                      unsigned long distance = gps.distance_between(flat,flon,LOKATION01_LAT,LOKATION01_LON);
                       // are we within 1000m? (could probably be set lower to make it more exciting)
                       // are we within threshold?
-                      if (distance < LABI_THRESHOLD) {
-                         lcd.clear();
-                         stringToLCD("You made it to Labitat!"); 
+                      if (distance < LOKATION01_THRESHOLD) {
+                         stringToLCD("You made it to      Illutron!"); 
                          delay(5000);
                          stringToLCD("Stand by for your next mission");
                          delay(5000);
@@ -352,10 +378,10 @@ void loop() {
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                           stringToLCD("Go to Labitat and   hack.");
-                           delay(10000);
-                           lcd.clear();
-                           lcd.setCursor(0,2);
+                           stringToLCD("Go to Illutron and  check the cache");
+                           delay(5000);
+//                           lcd.clear();
+                           lcd.setCursor(0,3);
                            lcd.print("Good Bye");
                            delay(3000);
                            digitalWrite(POLULUPIN,HIGH);
@@ -368,22 +394,18 @@ void loop() {
                   if (age < 1000) { 
                       unsigned long distance = gps.distance_between(flat,flon,HOME_LAT,HOME_LON);
                       if (distance < HOME_THRESHOLD) {
-                         lcd.clear();
                          stringToLCD("You made it home!"); 
-                         delay(10000);
+                         delay(5000);
                          stringToLCD("Stand by for your   next mission");
+                         delay(5000);
+                         stringToLCD("You can open this box on the 18th after 14:00");
                          delay(5000);
                          tasknr++;
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                           stringToLCD("Go home");
-                           if (debug) { 
-                             time_t t = now();
-                             lcd.setCursor(0,3);   
-                             lcd.print(t);
-                           }
-                           delay(2000);
+                           stringToLCD("Go home and sleep");
+                           delay(5000);
                            //lcd.clear();
                            lcd.setCursor(0,2);
                            lcd.print("Good Bye");
@@ -394,30 +416,41 @@ void loop() {
                       }
                   }
             break; 
-/*            case 2: // 3rd mission
-              // test on the date - are we on or after the correct date, go ahead an open
-              // - otherwise tell the user to wait for the correct date
-              // we alreday have the date set in the Time module (.. somewhere in the belly of the arduino)
-              // so we need to see if the year, month and date is correct
-              {
-                time_t t = now();
-                lcd.clear();
-                lcd.print(t);
-              delay(5000);
-              stringToLCD("Stand by for your   next mission");
-              delay(5000);
-              tasknr++;
-              EEPROM.write(1,tasknr);
-              }
-            break; */
-            case 2: // 3rd mission will go here (hooray, you're done!)
+            case 2: // 3rd mission
+                  if (age < 1000) { 
+                    // test on the date - are we on or after the correct date, go ahead an open
+                    // - otherwise tell the user to wait for the correct date
+                    // we alreday have the date set in the Time module (.. somewhere in the belly of the arduino)
+                    // so we need to see if the year, month and date is correct
+                    if (rightnow > cutoff) {
+                        stringToLCD("Congratulations!");
+                        delay(5000);
+                        stringToLCD("You made it through");
+                        delay(5000);
+                        stringToLCD("Stand by...");
+                        delay(5000);
+                        tasknr++;
+                        EEPROM.write(1,tasknr);
+                      } else {
+                        stringToLCD("You can open this   after 14:00");
+                        delay(5000);
+                        //lcd.clear();
+                        lcd.setCursor(0,3);
+                        lcd.print("Good Bye");
+                        delay(5000);
+                        digitalWrite(POLULUPIN,HIGH);
+                        delay(100);
+                        gamestate = 3; // switch to message if running on external power
+                      }
+                  }
+            break; 
+            case 3: // 3rd mission will go here (hooray, you're done!)
               stringToLCD("You've made it      through..");
               delay(2000);
               stringToLCD("The box will open...");
               EEPROM.write(0,2); // setting gs to 2
               delay(3000);
               gamestate = 2;
-            break; 
         }
         break;
     case 2: // the game is over - time to open the box 
