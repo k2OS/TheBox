@@ -290,7 +290,7 @@ void loop() {
             if (s < 10) { lcd.print("0"); }
             lcd.print(s); 
             previousMillis = millis();
-            if (debug) { Serial.print(".");
+            if (debug) { Serial.print("."); }
           } else if (remaindertime <= 0) { lcd.setCursor(0,3); lcd.print("      "); }
         }
         if (millis()-mastertimerstart >= timeout) {
