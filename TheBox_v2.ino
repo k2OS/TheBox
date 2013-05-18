@@ -1,10 +1,3 @@
-// things to test:
-// try with get_datetime alone 
-// implement a count of feegps' run (and on how many encode()'s have been done
-// counter to be used to see how many time feedgps is called before it is used
-long int debugcounter = 0;
-
-//#include <VarSpeedServo.h>
 #include <Servo.h>
 #include <LiquidCrystal.h>
 #include <TinyGPS.h>
@@ -50,10 +43,10 @@ float scaleb = 0.01;
 // timer for backdoor and reset 
 typedef long int longjohn;  // declaring my own long int, just because we joke around with the name 'John' in Labitat.. 
 // After this time, the servo will toggle open and then back to locked - will have to be prolonged to prevent accidental opening
-longjohn unsigned backdoortimeout1 = 2000; 
+longjohn unsigned backdoortimeout1 = 2000; // 2 seconds
 // after this time, the gamestatus will reset - this will need to be prolonged so it can only be triggered on external power
 // and/or when the box is programmed with cable when opened.
-longjohn unsigned backdoortimeout2 = 25000; 
+longjohn unsigned backdoortimeout2 = 25000; // 25 seconds 
 // keeps track of when the backdoor switch is triggered                                     
 longjohn unsigned backdoortimerstart;
 
@@ -71,7 +64,7 @@ long unsigned int timeout = 70000; // how long will we wait for the GPS (should 
 int timeoutreached = 0;
 int powermessage = 0; // keeps track of wether or not we've displayed a message after timeout and shutdown should have occured (displayed when on external power)
 
-int debug = 1; // enables serial debug
+int debug = 0; // enables serial debug + other things
 
 /* GPS-related variables */
 float flat, flon;
@@ -96,7 +89,7 @@ static const int DAD_THRESHOLD = 500; // required minimum distance to DAD
 static const float MOM_LAT = 56.279542, MOM_LON = 9.434083;
 static const int MOM_THRESHOLD = 500;
 
-static const float LOKATION01_LAT = 55.648910, LOKATION02_LON = 12.554195; // Illutron
+static const float LOKATION01_LAT = 55.648910, LOKATION01_LON = 12.554195; // Illutron
 static const int LOKATION01_THRESHOLD = 200;
 
 
@@ -104,7 +97,7 @@ static const int LOKATION01_THRESHOLD = 200;
 int cutyear = 2013;
 int cutmonth = 5;
 int cutday = 18;
-int cuthour = 14;
+int cuthour = 18;
 int cutminute = 0;
 time_t rightnow;
 time_t cutoff;
@@ -141,15 +134,6 @@ cutoff = makeTime(tm);
  // set up the LCD's number of columns and rows: 
  lcd.begin(20, 4);
 
- // Print a message to the LCD.
- // to be moved when the box goes live
- // or maybe print gamestatus + welcome (back)
- lcd.setCursor(0,0);
- // stringToLcd is explained below.
- stringToLCD("Welcome!");
- delay(1000);
- stringToLCD("Getting signal...");
-
  /*
   read Gamestate, etc. from EEPROM
   gamestate = pos 0
@@ -164,6 +148,21 @@ cutoff = makeTime(tm);
  tasknr = EEPROM.read(1);
  // if tasknr is bigger than a certain number, it has not been initiated, so we write it back - see above
  if (tasknr > 200) { tasknr = 0; EEPROM.write(1,tasknr); }
+
+ // Print a message to the LCD.
+ // to be moved when the box goes live
+ // or maybe print gamestatus + welcome (back)
+ // for now I am making sure only to print welcome when the game is in the running state
+ if (gamestate == 1) {
+   // stringToLcd is explained below.
+   if (tasknr == 0) { stringToLCD("Welcome!"); }
+   else { stringToLCD("Welcome back!"); }
+   if (debug) {
+      lcd.setCursor(0,1);lcd.print("tasknr: ");lcd.print(tasknr);
+   }
+   delay(2000);
+   stringToLCD("Getting signal...");
+ }
 
  if (debug) {
    Serial.print("Initial gamestate: ");
@@ -279,11 +278,11 @@ void loop() {
        lcd.clear();
        lcd.print("box reset and will ");
        lcd.print("lock in 3 seconds");
-       if (debug) { lcd.setCursor(0,3);lcd.print(gamestate);lcd.print(",");lcd.print(tasknr);lcd.print(millis()); }
+       if (debug) { lcd.setCursor(0,3);lcd.print(gamestate);lcd.print(",");lcd.print(tasknr); }
        nss.end(); // "detach" the GPS before operating the servo
        gpsattached = 0;
        delay(3000);  // the 3 second delay
-       lockbox(); // redundant - the box is at this point locked as the lock cycles during the first part of the backdoor-session
+       //lockbox(); // redundant - the box is at this point locked as the lock cycles during the first part of the backdoor-session
        digitalWrite(POLULUPIN,HIGH); // try and turn off (but it's still on aux power, I know ))
        delay(100);
        gamestate = 3; 
@@ -317,7 +316,7 @@ void loop() {
                 if (s < 10) { lcd.print("0"); }
                 lcd.print(s); 
                 previousMillis = millis();
-                if (debug) { lcd.print("GPS age: ");lcd.print(age); }
+                if (debug) { lcd.setCursor(0,2); lcd.print(age); }
               } else if (remaindertime <= 0) { lcd.setCursor(0,3); lcd.print("      "); }
         }
         if (millis()-mastertimerstart >= timeout) {
@@ -398,7 +397,7 @@ void loop() {
                          delay(5000);
                          stringToLCD("Stand by for your   next mission");
                          delay(5000);
-                         stringToLCD("You can open this box on the 18th after 14:00");
+                         stringToLCD("You can open this box on the 18th after 18:00");
                          delay(5000);
                          tasknr++;
                          EEPROM.write(1,tasknr);
@@ -432,7 +431,7 @@ void loop() {
                         tasknr++;
                         EEPROM.write(1,tasknr);
                       } else {
-                        stringToLCD("You can open this   after 14:00");
+                        stringToLCD("You can open this   after 18:00");
                         delay(5000);
                         //lcd.clear();
                         lcd.setCursor(0,3);
@@ -445,9 +444,8 @@ void loop() {
                   }
             break; 
             case 3: // 3rd mission will go here (hooray, you're done!)
-              stringToLCD("You've made it      through..");
+              stringToLCD("The box will open..");
               delay(2000);
-              stringToLCD("The box will open...");
               EEPROM.write(0,2); // setting gs to 2
               delay(3000);
               gamestate = 2;
@@ -464,9 +462,11 @@ void loop() {
         unlockbox();
         lcd.clear();
         lcd.setCursor(0,0);
-        lcd.print("The box is open");
+        lcd.print("The box is now open");
+        lcd.setCursor(0,1);
+        lcd.print("Congratulations!");
         lcd.setCursor(0,2);
-        lcd.print("Good Bye");
+        lcd.print("Good Bye!");
         delay(5000);
 
         digitalWrite(POLULUPIN,HIGH);
