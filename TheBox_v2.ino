@@ -246,14 +246,15 @@ void loop() {
     lcd.clear();
     lcd.setCursor(0,0);
     lcd.print("Game has been reset");
-    delay(1000);
-    gamestate = 0; tasknr = 1;
+    delay(3000);
+    gamestate = 0;
+    tasknr = 1;
     if (debug) {
       Serial.println("box has been reset");
       Serial.print("Gamestate changed: ");
       Serial.println(gamestate);
     }
-    digitalWrite(POLULUPIN,HIGH); // try and turn off, even though I know this is in vain on aux power
+    //digitalWrite(POLULUPIN,HIGH); // try and turn off, even though I know this is in vain on aux power
     delay(100);
    } 
    if (gpsattached) {
@@ -270,7 +271,7 @@ void loop() {
 
    // here we do a switch on the gamestate to decide what to do
    switch(gamestate) {
-    case 0: // game has just been reset - lock the box and shut down - states have been written above
+    case 0: { // game has just been reset - lock the box and shut down - states have been written above
        if (debug) {
          Serial.print("Gamestate (gs0): ");
          Serial.println(gamestate);
@@ -285,7 +286,7 @@ void loop() {
        //lockbox(); // redundant - the box is at this point locked as the lock cycles during the first part of the backdoor-session
        digitalWrite(POLULUPIN,HIGH); // try and turn off (but it's still on aux power, I know ))
        delay(100);
-       gamestate = 3; 
+       gamestate = 3; } 
        break; 
     case 1: // the game is running
           // the count down thingy while we're searching for signal
@@ -423,13 +424,17 @@ void loop() {
                     // so we need to see if the year, month and date is correct
                     if (rightnow > cutoff) {
                         stringToLCD("Congratulations!");
-                        delay(5000);
+                        delay(3000);
                         stringToLCD("You made it through");
-                        delay(5000);
+                        delay(3000);
                         stringToLCD("Stand by...");
-                        delay(5000);
-                        tasknr++;
-                        EEPROM.write(1,tasknr);
+                        delay(3000);
+                        stringToLCD("The box will open..");
+                        delay(2000);
+                        gamestate = 2;
+                        EEPROM.write(0,gamestate); // setting gs to 2
+                        delay(3000);
+                        mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
                         stringToLCD("You can open this   after 18:00");
                         delay(5000);
@@ -443,12 +448,6 @@ void loop() {
                       }
                   }
             break; 
-            case 3: // 3rd mission will go here (hooray, you're done!)
-              stringToLCD("The box will open..");
-              delay(2000);
-              EEPROM.write(0,2); // setting gs to 2
-              delay(3000);
-              gamestate = 2;
         }
         break;
     case 2: // the game is over - time to open the box 
@@ -466,14 +465,13 @@ void loop() {
         lcd.setCursor(0,1);
         lcd.print("Congratulations!");
         lcd.setCursor(0,2);
+        delay(2000);
         lcd.print("Good Bye!");
-        delay(5000);
-
+        delay(3000);
         digitalWrite(POLULUPIN,HIGH);
         delay(100);
         gamestate = 3; // switch to message if running on external power
         break;
-
     case 3: // we're waiting for power to be removed
      if (!powermessage) {
        delay(1000);
