@@ -66,6 +66,8 @@ int powermessage = 0; // keeps track of wether or not we've displayed a message 
 
 int debug = 0; // enables serial debug + other things
 
+int showtimer = 1; // show the countdown or not
+
 /* GPS-related variables */
 float flat, flon;
 unsigned long age, date, time;
@@ -92,12 +94,16 @@ static const int MOM_THRESHOLD = 500;
 static const float LOKATION01_LAT = 55.648910, LOKATION01_LON = 12.554195; // Illutron
 static const int LOKATION01_THRESHOLD = 200;
 
+static const float LOKATION02_LAT = 55.90516, LOKATION02_LON = 12.47612; // REMA-ish
+static const int LOKATION02_THRESHOLD = 200;
+
+
 
 // dateline to cross before the box can be opened
 int cutyear = 2013;
 int cutmonth = 5;
-int cutday = 18;
-int cuthour = 18;
+int cutday = 19;
+int cuthour = 15;
 int cutminute = 0;
 time_t rightnow;
 time_t cutoff;
@@ -276,14 +282,14 @@ void loop() {
          Serial.print("Gamestate (gs0): ");
          Serial.println(gamestate);
        }
-       lcd.clear();
-       lcd.print("box reset and will ");
-       lcd.print("lock in 3 seconds");
-       if (debug) { lcd.setCursor(0,3);lcd.print(gamestate);lcd.print(",");lcd.print(tasknr); }
-       nss.end(); // "detach" the GPS before operating the servo
+       stringToLCD("box locked and reset");
+       delay(3000);
+       stringToLCD("Good Luck!");
+       delay(2000);
+     /*  nss.end(); // "detach" the GPS before operating the servo
        gpsattached = 0;
-       delay(3000);  // the 3 second delay
-       //lockbox(); // redundant - the box is at this point locked as the lock cycles during the first part of the backdoor-session
+       lockbox(); // redundant - the box is at this point locked as the lock cycles during the first part of the backdoor-session
+     */
        digitalWrite(POLULUPIN,HIGH); // try and turn off (but it's still on aux power, I know ))
        delay(100);
        gamestate = 3; } 
@@ -307,18 +313,18 @@ void loop() {
             s=int(over/1000);
             ms=over%1000;
             // .. && gamestate = "running" skal der tilføjes .. eller noed
-            // .. && !inbetweentasks - the countdown shows up for a tiny bit between steps, so I will add this
-            // when I am actually awake
-              if (millis()-previousMillis >= interval && remaindertime >= 0 && !timeoutreached) {
-                lcd.setCursor(0,3);
-                if (m < 10) { lcd.print("0"); }
-                lcd.print(m); 
-                lcd.print(":"); 
-                if (s < 10) { lcd.print("0"); }
-                lcd.print(s); 
-                previousMillis = millis();
-                if (debug) { lcd.setCursor(0,2); lcd.print(age); }
-              } else if (remaindertime <= 0) { lcd.setCursor(0,3); lcd.print("      "); }
+            // 'showtimer' is set to '0' when tasknr is incremented so the timer doesn't show up for that tiny bit between tasknrs
+            if (millis()-previousMillis >= interval && remaindertime >= 0 && !timeoutreached && showtimer) {
+              lcd.setCursor(0,3);
+              if (m < 10) { lcd.print("0"); }
+              lcd.print(m); 
+              lcd.print(":"); 
+              if (s < 10) { lcd.print("0"); }
+              lcd.print(s); 
+              previousMillis = millis();
+              if (debug) { lcd.setCursor(0,2); lcd.print(age); }
+            } else if (remaindertime <= 0) { lcd.setCursor(0,3); lcd.print("      "); }
+            showtimer = 1; // set the showtimer back to 1 so we will see it on the next loop
         }
         if (millis()-mastertimerstart >= timeout) {
             if (!timeoutreached) {
@@ -366,19 +372,20 @@ void loop() {
         switch(tasknr) {
             case 0: // welcome message and first mission - we're not showing this unless we actually have a GPS fix
                   if (age < 1000) { 
-                      unsigned long distance = gps.distance_between(flat,flon,LOKATION01_LAT,LOKATION01_LON);
+                      unsigned long distance = gps.distance_between(flat,flon,LOKATION02_LAT,LOKATION02_LON);
                       // are we within 1000m? (could probably be set lower to make it more exciting)
                       // are we within threshold?
                       if (distance < LOKATION01_THRESHOLD) {
-                         stringToLCD("You made it to      Illutron!"); 
+                         stringToLCD("You made it to      REMA!"); 
                          delay(5000);
                          stringToLCD("Stand by for your next mission");
                          delay(5000);
                          tasknr++;
+                         showtimer = 0;
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                           stringToLCD("Go to Illutron and  check the cache");
+                           stringToLCD("Go to REMA");
                            delay(5000);
 //                           lcd.clear();
                            lcd.setCursor(0,3);
@@ -398,9 +405,8 @@ void loop() {
                          delay(5000);
                          stringToLCD("Stand by for your   next mission");
                          delay(5000);
-                         stringToLCD("You can open this box on the 18th after 18:00");
-                         delay(5000);
                          tasknr++;
+                         showtimer = 0;
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
@@ -432,11 +438,12 @@ void loop() {
                         stringToLCD("The box will open..");
                         delay(2000);
                         gamestate = 2;
+                        showtimer = 0;
                         EEPROM.write(0,gamestate); // setting gs to 2
                         delay(3000);
                         mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                        stringToLCD("You can open this   after 18:00");
+                        stringToLCD("You can open this box on the 19th after 15:00");
                         delay(5000);
                         //lcd.clear();
                         lcd.setCursor(0,3);
