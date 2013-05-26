@@ -66,8 +66,6 @@ int powermessage = 0; // keeps track of wether or not we've displayed a message 
 
 int debug = 0; // enables serial debug + other things
 
-int showtimer = 1; // show the countdown or not
-
 /* GPS-related variables */
 float flat, flon;
 unsigned long age, date, time;
@@ -95,15 +93,15 @@ static const float LOKATION01_LAT = 55.648910, LOKATION01_LON = 12.554195; // Il
 static const int LOKATION01_THRESHOLD = 200;
 
 static const float LOKATION02_LAT = 55.90516, LOKATION02_LON = 12.47612; // REMA-ish
-static const int LOKATION02_THRESHOLD = 200;
+static const int LOKATION02_THRESHOLD = 500;
 
 
 
 // dateline to cross before the box can be opened
 int cutyear = 2013;
 int cutmonth = 5;
-int cutday = 19;
-int cuthour = 15;
+int cutday = 20;
+int cuthour = 17;
 int cutminute = 0;
 time_t rightnow;
 time_t cutoff;
@@ -173,6 +171,8 @@ cutoff = makeTime(tm);
  if (debug) {
    Serial.print("Initial gamestate: ");
    Serial.println(gamestate);
+   Serial.print("Initial tasknr: ");
+   Serial.println(tasknr);
  }
 
  /* other settings */
@@ -286,6 +286,7 @@ void loop() {
        delay(3000);
        stringToLCD("Good Luck!");
        delay(2000);
+       if (debug) { Serial.println("gs should now change to 3"); }
      /*  nss.end(); // "detach" the GPS before operating the servo
        gpsattached = 0;
        lockbox(); // redundant - the box is at this point locked as the lock cycles during the first part of the backdoor-session
@@ -312,9 +313,7 @@ void loop() {
             over=over%60000;
             s=int(over/1000);
             ms=over%1000;
-            // .. && gamestate = "running" skal der tilføjes .. eller noed
-            // 'showtimer' is set to '0' when tasknr is incremented so the timer doesn't show up for that tiny bit between tasknrs
-            if (millis()-previousMillis >= interval && remaindertime >= 0 && !timeoutreached && showtimer) {
+            if (millis()-previousMillis >= interval && remaindertime >= 0 && !timeoutreached) {
               lcd.setCursor(0,3);
               if (m < 10) { lcd.print("0"); }
               lcd.print(m); 
@@ -322,9 +321,11 @@ void loop() {
               if (s < 10) { lcd.print("0"); }
               lcd.print(s); 
               previousMillis = millis();
-              if (debug) { lcd.setCursor(0,2); lcd.print(age); }
+              if (debug) { 
+                lcd.setCursor(0,2); 
+                lcd.print(age); 
+              }
             } else if (remaindertime <= 0) { lcd.setCursor(0,3); lcd.print("      "); }
-            showtimer = 1; // set the showtimer back to 1 so we will see it on the next loop
         }
         if (millis()-mastertimerstart >= timeout) {
             if (!timeoutreached) {
@@ -375,13 +376,12 @@ void loop() {
                       unsigned long distance = gps.distance_between(flat,flon,LOKATION02_LAT,LOKATION02_LON);
                       // are we within 1000m? (could probably be set lower to make it more exciting)
                       // are we within threshold?
-                      if (distance < LOKATION01_THRESHOLD) {
+                      if (distance < LOKATION02_THRESHOLD) {
                          stringToLCD("You made it to      REMA!"); 
                          delay(5000);
                          stringToLCD("Stand by for your next mission");
                          delay(5000);
                          tasknr++;
-                         showtimer = 0;
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
@@ -399,18 +399,17 @@ void loop() {
             break; 
             case 1: // Second mission
                   if (age < 1000) { 
-                      unsigned long distance = gps.distance_between(flat,flon,HOME_LAT,HOME_LON);
-                      if (distance < HOME_THRESHOLD) {
-                         stringToLCD("You made it home!"); 
+                      unsigned long distance = gps.distance_between(flat,flon,LABI_LAT,LABI_LON);
+                      if (distance < LABI_THRESHOLD) {
+                         stringToLCD("You made it to..... Labitat"); 
                          delay(5000);
                          stringToLCD("Stand by for your   next mission");
                          delay(5000);
                          tasknr++;
-                         showtimer = 0;
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                           stringToLCD("Go home and sleep");
+                           stringToLCD("Go to Labitat");
                            delay(5000);
                            //lcd.clear();
                            lcd.setCursor(0,2);
@@ -438,7 +437,6 @@ void loop() {
                         stringToLCD("The box will open..");
                         delay(2000);
                         gamestate = 2;
-                        showtimer = 0;
                         EEPROM.write(0,gamestate); // setting gs to 2
                         delay(3000);
                         mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
