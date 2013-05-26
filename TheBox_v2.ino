@@ -287,14 +287,11 @@ void loop() {
        stringToLCD("Good Luck!");
        delay(2000);
        if (debug) { Serial.println("gs should now change to 3"); }
-     /*  nss.end(); // "detach" the GPS before operating the servo
-       gpsattached = 0;
-       lockbox(); // redundant - the box is at this point locked as the lock cycles during the first part of the backdoor-session
-     */
        digitalWrite(POLULUPIN,HIGH); // try and turn off (but it's still on aux power, I know ))
        delay(100);
        gamestate = 3; } 
        break; 
+    // THE GAME STARTS HERE FOR REAL
     case 1: // the game is running
           // the count down thingy while we're searching for signal
           // - should probably be disabled when we're changing locations.. 
@@ -373,11 +370,11 @@ void loop() {
         switch(tasknr) {
             case 0: // welcome message and first mission - we're not showing this unless we actually have a GPS fix
                   if (age < 1000) { 
-                      unsigned long distance = gps.distance_between(flat,flon,LOKATION02_LAT,LOKATION02_LON);
+                      unsigned long distance = gps.distance_between(flat,flon,DAD_LAT,DAD_LON);
                       // are we within 1000m? (could probably be set lower to make it more exciting)
                       // are we within threshold?
-                      if (distance < LOKATION02_THRESHOLD) {
-                         stringToLCD("You made it to      REMA!"); 
+                      if (distance < DAD_THRESHOLD) {
+                         stringToLCD("You made it to      dad"); 
                          delay(5000);
                          stringToLCD("Stand by for your next mission");
                          delay(5000);
@@ -385,7 +382,7 @@ void loop() {
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                           stringToLCD("Go to REMA");
+                           stringToLCD("Go to dads house");
                            delay(5000);
 //                           lcd.clear();
                            lcd.setCursor(0,3);
