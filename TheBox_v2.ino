@@ -165,12 +165,12 @@ cutoff = makeTime(tm);
  if (gamestate == 1) {
    // stringToLcd is explained below.
    if (tasknr == 0) { stringToLCD("Welcome!"); }
-   else { stringToLCD("Welcome back!"); }
+   else { stringToLCD(getPSTR("Welcome back!")); }
    if (debug) {
       lcd.setCursor(0,1);lcd.print("tasknr: ");lcd.print(tasknr);
    }
    delay(2000);
-   stringToLCD("Getting signal...");
+   stringToLCD(getPSTR("Getting signal..."));
  }
 
  /* other settings */
@@ -280,9 +280,9 @@ void loop() {
          Serial.print("Gamestate (gs0): ");
          Serial.println(gamestate);
        }
-       stringToLCD("box locked and reset");
+       stringToLCD(getPSTR("box locked and reset"));
        delay(3000);
-       stringToLCD("Good Luck!");
+       stringToLCD(getPSTR("Good Luck!"));
        delay(2000);
        if (debug) { Serial.println("gs should now change to 3"); }
        digitalWrite(POLULUPIN,HIGH); // try and turn off (but it's still on aux power, I know ))
@@ -368,17 +368,17 @@ void loop() {
                       // are we within 1000m? (could probably be set lower to make it more exciting)
                       // are we within threshold?
                       if (distance < FAABORG_THRESHOLD) {
-                         stringToLCD("You made it to...   Faaborg. Was the ice cream good?"); 
+                         stringToLCD(getPSTR("You made it to...   Faaborg. Was the ice cream good?")); 
                          delay(5000);
-                         stringToLCD("Remember to take    pictures.");
+                         stringToLCD(getPSTR("Remember to take    pictures."));
                          delay(5000);
-                         stringToLCD("Stand by for your next mission");
+                         stringToLCD(getPSTR("Stand by for your next mission"));
                          delay(5000);
                          tasknr++;
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                           stringToLCD("Go to Faaborg and   eat an ice cream on the harbour.");
+                           stringToLCD(getPSTR("Go to Faaborg and   eat an ice cream on the harbour."));
                            delay(5000);
 //                           lcd.clear();
                            lcd.setCursor(0,3);
@@ -394,20 +394,20 @@ void loop() {
                   if (age < 1000) { 
                       unsigned long distance = gps.distance_between(flat,flon,DAD_LAT,DAD_LON);
                       if (distance < DAD_THRESHOLD) {
-                         stringToLCD("You've made it to.. dads house"); 
+                         stringToLCD(getPSTR("You've made it to.. dads house")); 
                          delay(5000);
-                         stringToLCD("I hope the car is   still in one piece?"); 
+                         stringToLCD(getPSTR("I hope the car is   still in one piece?")); 
                          delay(5000);
-                         stringToLCD("Stand by for your   next mission");
+                         stringToLCD(getPSTR("Stand by for your   next mission"));
                          delay(5000);
                          tasknr++;
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                           stringToLCD("Go and visit dad -  The one on the same island as you are on");
+                           stringToLCD(getPSTR("Go and visit dad -  The one on the same island as you are on"));
                            delay(5000);
                            lcd.setCursor(0,3);
-                           lcd.print("Good Bye");
+                           lcd.print(getPSTR("Good Bye"));
                            delay(5000);
                            digitalWrite(POLULUPIN,HIGH);
                            delay(100);
@@ -420,22 +420,22 @@ void loop() {
                   if (age < 1000) { 
                       unsigned long distance = gps.distance_between(flat,flon,MOM_LAT,MOM_LON);
                       if (distance < MOM_THRESHOLD) {
-                         stringToLCD("You've made it to.. moms house"); 
+                         stringToLCD(getPSTR("You've made it to.. moms house")); 
                          delay(5000);
-                         stringToLCD("Did you take the carall this way??"); 
+                         stringToLCD(getPSTR("Did you take the carall this way??")); 
                          delay(5000);
-                         stringToLCD("Stand by for your   next mission");
+                         stringToLCD(getPSTR("Stand by for your   next mission"));
                          delay(5000);
-                         stringToLCD("You're getting closeto the end");
+                         stringToLCD(getPSTR("You're getting closeto the end"));
                          delay(5000);
                          tasknr++;
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                           stringToLCD("Go and visit mom -  The one in the same country as you are in");
+                           stringToLCD(getPSTR("Go and visit mom -  The one in the same country as you are in"));
                            delay(5000);
                            lcd.setCursor(0,3);
-                           lcd.print("Good Bye");
+                           lcd.print(getPSTR("Good Bye"));
                            delay(5000);
                            digitalWrite(POLULUPIN,HIGH);
                            delay(100);
