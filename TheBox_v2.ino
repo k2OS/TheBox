@@ -77,9 +77,6 @@ byte Month, Day, Hour, Minute, Second;
 const int offset = 2; // we're in UTC+2 now
 
 // coordinates for the various locations for the puzzle box to go
-static const float LABI_LAT = 55.676235, LABI_LON = 12.54561; // coordinates of Labitat
-static const int LABI_THRESHOLD = 40; // required mininum distance to location
-
 static const float FAABORG_LAT = 55.094878, FAABORG_LON = 10.237732;
 static const int FAABORG_THRESHOLD = 1000; // required minimum distance to Faaborg havn
 
@@ -112,11 +109,11 @@ int tasknr; // which location will we go to next?
 void setup() 
 { 
  nss.begin(9600); // initiate SoftwareSerial, which we use to talk to the GPS
-// if (debug) {
+ if (debug) {
    Serial.begin(115200);
-// }
    Serial.print(getPSTR("Free RAM = ")); // forced to be compiled into and read from Flash
    Serial.println(freeMemory(), DEC);  // print how much RAM is available. 
+ }
 
 // initiate tm
 tmElements_t tm;
@@ -148,26 +145,26 @@ cutoff = makeTime(tm);
  // if tasknr is bigger than a certain number, it has not been initiated, so we write it back - see above
  if (tasknr > 200) { tasknr = 0; EEPROM.write(1,tasknr); }
 
-/*
+
  if (debug) {
-   Serial.print("Initial gamestate: ");
+   Serial.print(getPSTR("Initial gamestate: "));
    Serial.println(gamestate);
    delay(1000);
-   Serial.print("Initial tasknr: ");
+   Serial.print(getPSTR("Initial tasknr: "));
    Serial.println(tasknr);
    delay(1000);
  }
-*/
+
  // Print a message to the LCD.
  // to be moved when the box goes live
  // or maybe print gamestatus + welcome (back)
  // for now I am making sure only to print welcome when the game is in the running state
  if (gamestate == 1) {
    // stringToLcd is explained below.
-   if (tasknr == 0) { stringToLCD("Welcome!"); }
+   if (tasknr == 0) { stringToLCD(getPSTR("Welcome!")); }
    else { stringToLCD(getPSTR("Welcome back!")); }
    if (debug) {
-      lcd.setCursor(0,1);lcd.print("tasknr: ");lcd.print(tasknr);
+      lcd.setCursor(0,1);lcd.print(getPSTR("tasknr: "));lcd.print(tasknr);
    }
    delay(2000);
    stringToLCD(getPSTR("Getting signal..."));
@@ -224,7 +221,7 @@ void loop() {
      backdoortimerstart = millis();
      backdoortimerrunning = 1;
      if (debug) {
-         Serial.println("backdoor timer started");
+         Serial.println(getPSTR("backdoor timer started"));
      }
    } else if (v >= 0.1) { backdoortimerrunning = 0; boxopen = 0; }     
    // test for threshold 1 - open and close door
@@ -237,7 +234,7 @@ void loop() {
      gpsattached = 0; // servo will only be attached if the GPS is 'detached'
      unlockbox(); // opens the servo
      if (debug)
-       Serial.println("box is opened");
+       Serial.println(getPSTR("box is opened"));
      delay(5000); // I have this much time to open the box - the countdown is 'frozen' during this time (but still runs)
      lockbox(); // closes the servo
    } else if (backdoortimerrunning && (millis()-backdoortimerstart >= backdoortimeout2) && !gamereset) { // test for threshold 2
@@ -254,8 +251,8 @@ void loop() {
     gamestate = 0;
     tasknr = 1;
     if (debug) {
-      Serial.println("box has been reset");
-      Serial.print("Gamestate changed: ");
+      Serial.println(getPSTR("box has been reset"));
+      Serial.print(getPSTR("Gamestate changed: "));
       Serial.println(gamestate);
     }
     //digitalWrite(POLULUPIN,HIGH); // try and turn off, even though I know this is in vain on aux power
@@ -277,14 +274,14 @@ void loop() {
    switch(gamestate) {
     case 0: { // game has just been reset - lock the box and shut down - states have been written above
        if (debug) {
-         Serial.print("Gamestate (gs0): ");
+         Serial.print(getPSTR("Gamestate (gs0): "));
          Serial.println(gamestate);
        }
        stringToLCD(getPSTR("box locked and reset"));
        delay(3000);
        stringToLCD(getPSTR("Good Luck!"));
        delay(2000);
-       if (debug) { Serial.println("gs should now change to 3"); }
+       if (debug) { Serial.println(getPSTR("gs should now change to 3")); }
        digitalWrite(POLULUPIN,HIGH); // try and turn off (but it's still on aux power, I know ))
        delay(100);
        gamestate = 3; } 
@@ -324,7 +321,7 @@ void loop() {
               lcd.setCursor(0,1);
               lcd.print("No signal - Good Bye");
               if (debug)
-                Serial.println("Timeout reached - good bye!");
+                Serial.println(getPSTR("Timeout reached - good bye!"));
               delay(2000);
               // pull polulu high etc.
               digitalWrite(POLULUPIN,HIGH);
@@ -334,7 +331,7 @@ void loop() {
               // wait a while then ask to have power removed - we have to set a flag so this step is detected alone
               gamestate = 3;
               if (debug) {
-                 Serial.print("Gamestate changed: ");
+                 Serial.print(getPSTR("Gamestate changed: "));
                  Serial.println(gamestate);
               }
             }
@@ -451,24 +448,24 @@ void loop() {
                     // we alreday have the date set in the Time module (.. somewhere in the belly of the arduino)
                     // so we need to see if the year, month and date is correct - this is done by converting to UXtime
                     if (rightnow > cutoff) {
-/*                        
-                        stringToLCD("Congratulations!    You should now be   married!");
+                        
+                        stringToLCD(getPSTR("Congratulations!    You should now be   married!"));
                         delay(5000);
-                        stringToLCD("You can now show    people this box and tell them about youradventures..");
+                        stringToLCD(getPSTR("You can now show    people this box and tell them about youradventures.."));
                         delay(5000);
-                        stringToLCD("Before you can open this box there is   something you shouldknow..");
+                        stringToLCD(getPSTR("Before you can open this box there is   something you shouldknow.."));
                         delay(5000);
-                        stringToLCD("Someone came to the party without no..");
+                        stringToLCD(getPSTR("When I open, we will have to part ways..."));
                         delay(5000);
-                        stringToLCD("You might already   know who it is, but take a guess..");
+                        stringToLCD(getPSTR("but you will get    something much  bet-ter in return"));
                         delay(5000);
-                        stringToLCD("Did you guess it... ?");
+                        stringToLCD(getPSTR("Are you ready...?"));
                         delay(5000);
-                        stringToLCD("In any case, the boxwill now open.");
+                        stringToLCD(getPSTR("In any case, the boxwill now open."));
                         delay(5000);
-                        stringToLCD("The display will    blink slightly and  you will hear a buz-zing sound.");
+                        stringToLCD(getPSTR("The display will    blink slightly and  you will hear a buz-zing sound."));
                         delay(5000);
-*/
+
                         lcd.clear(); lcd.setCursor(0,0);lcd.print("Tillykke");
                         gamestate = 2;
                         EEPROM.write(0,gamestate); // setting gs to 2
@@ -490,7 +487,7 @@ void loop() {
         break;
     case 2: // the game is over - time to open the box 
          if (debug) {
-           Serial.print("Gamestate (gs2): ");
+           Serial.print(getPSTR("Gamestate (gs2): "));
            Serial.println(gamestate);
         }
         nss.end(); //stop talking to the GPS
@@ -516,12 +513,12 @@ void loop() {
        lcd.print("please remove power");
        powermessage = 1;
         if (debug) {
-           Serial.print("Gamestate (gs3): ");
+           Serial.print(getPSTR("Gamestate (gs3): "));
            Serial.println(gamestate);
         }
         
        if (debug)
-         Serial.println("Please remove power");
+         Serial.println(getPSTR("Please remove power"));
 
      }
      break;
