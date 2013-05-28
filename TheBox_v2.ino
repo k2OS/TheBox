@@ -5,6 +5,9 @@
 #include <EEPROM.h>
 #include <Time.h>
 
+#include <MemoryFree.h>
+#include <pgmStrToRAM.h>
+
 TinyGPS gps;
 // rx = 7 (yellow), tx = 6 (white)
 // vcc = black, gnd = green
@@ -77,9 +80,6 @@ const int offset = 2; // we're in UTC+2 now
 static const float LABI_LAT = 55.676235, LABI_LON = 12.54561; // coordinates of Labitat
 static const int LABI_THRESHOLD = 40; // required mininum distance to location
 
-static const float HOME_LAT = 55.91461, HOME_LON = 12.49487; // coordinates of home
-static const int HOME_THRESHOLD = 40; // required mininum distance to location
-
 static const float FAABORG_LAT = 55.094878, FAABORG_LON = 10.237732;
 static const int FAABORG_THRESHOLD = 1000; // required minimum distance to Faaborg havn
 
@@ -89,20 +89,12 @@ static const int DAD_THRESHOLD = 500; // required minimum distance to DAD
 static const float MOM_LAT = 56.279542, MOM_LON = 9.434083;
 static const int MOM_THRESHOLD = 500;
 
-static const float LOKATION01_LAT = 55.648910, LOKATION01_LON = 12.554195; // Illutron
-static const int LOKATION01_THRESHOLD = 200;
-
-static const float LOKATION02_LAT = 55.90516, LOKATION02_LON = 12.47612; // REMA-ish
-static const int LOKATION02_THRESHOLD = 500;
-
-
-
 // dateline to cross before the box can be opened
 int cutyear = 2013;
-int cutmonth = 5;
-int cutday = 20;
-int cuthour = 17;
-int cutminute = 0;
+int cutmonth = 8;
+int cutday = 3;
+int cuthour = 15;
+int cutminute = 30;
 time_t rightnow;
 time_t cutoff;
 
@@ -120,8 +112,11 @@ int tasknr; // which location will we go to next?
 void setup() 
 { 
  nss.begin(9600); // initiate SoftwareSerial, which we use to talk to the GPS
- if (debug)
+// if (debug) {
    Serial.begin(115200);
+// }
+   Serial.print(getPSTR("Free RAM = ")); // forced to be compiled into and read from Flash
+   Serial.println(freeMemory(), DEC);  // print how much RAM is available. 
 
 // initiate tm
 tmElements_t tm;
@@ -153,6 +148,16 @@ cutoff = makeTime(tm);
  // if tasknr is bigger than a certain number, it has not been initiated, so we write it back - see above
  if (tasknr > 200) { tasknr = 0; EEPROM.write(1,tasknr); }
 
+/*
+ if (debug) {
+   Serial.print("Initial gamestate: ");
+   Serial.println(gamestate);
+   delay(1000);
+   Serial.print("Initial tasknr: ");
+   Serial.println(tasknr);
+   delay(1000);
+ }
+*/
  // Print a message to the LCD.
  // to be moved when the box goes live
  // or maybe print gamestatus + welcome (back)
@@ -166,13 +171,6 @@ cutoff = makeTime(tm);
    }
    delay(2000);
    stringToLCD("Getting signal...");
- }
-
- if (debug) {
-   Serial.print("Initial gamestate: ");
-   Serial.println(gamestate);
-   Serial.print("Initial tasknr: ");
-   Serial.println(tasknr);
  }
 
  /* other settings */
@@ -318,10 +316,6 @@ void loop() {
               if (s < 10) { lcd.print("0"); }
               lcd.print(s); 
               previousMillis = millis();
-              if (debug) { 
-                lcd.setCursor(0,2); 
-                lcd.print(age); 
-              }
             } else if (remaindertime <= 0) { lcd.setCursor(0,3); lcd.print("      "); }
         }
         if (millis()-mastertimerstart >= timeout) {
@@ -370,11 +364,13 @@ void loop() {
         switch(tasknr) {
             case 0: // welcome message and first mission - we're not showing this unless we actually have a GPS fix
                   if (age < 1000) { 
-                      unsigned long distance = gps.distance_between(flat,flon,DAD_LAT,DAD_LON);
+                      unsigned long distance = gps.distance_between(flat,flon,FAABORG_LAT,FAABORG_LON);
                       // are we within 1000m? (could probably be set lower to make it more exciting)
                       // are we within threshold?
-                      if (distance < DAD_THRESHOLD) {
-                         stringToLCD("You made it to      dad"); 
+                      if (distance < FAABORG_THRESHOLD) {
+                         stringToLCD("You made it to...   Faaborg. Was the ice cream good?"); 
+                         delay(5000);
+                         stringToLCD("Remember to take    pictures.");
                          delay(5000);
                          stringToLCD("Stand by for your next mission");
                          delay(5000);
@@ -382,7 +378,7 @@ void loop() {
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                           stringToLCD("Go to dads house");
+                           stringToLCD("Go to Faaborg and   eat an ice cream on the harbour.");
                            delay(5000);
 //                           lcd.clear();
                            lcd.setCursor(0,3);
@@ -396,9 +392,11 @@ void loop() {
             break; 
             case 1: // Second mission
                   if (age < 1000) { 
-                      unsigned long distance = gps.distance_between(flat,flon,LABI_LAT,LABI_LON);
-                      if (distance < LABI_THRESHOLD) {
-                         stringToLCD("You made it to..... Labitat"); 
+                      unsigned long distance = gps.distance_between(flat,flon,DAD_LAT,DAD_LON);
+                      if (distance < DAD_THRESHOLD) {
+                         stringToLCD("You've made it to.. dads house"); 
+                         delay(5000);
+                         stringToLCD("I hope the car is   still in one piece?"); 
                          delay(5000);
                          stringToLCD("Stand by for your   next mission");
                          delay(5000);
@@ -406,10 +404,9 @@ void loop() {
                          EEPROM.write(1,tasknr);
                          mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                           stringToLCD("Go to Labitat");
+                           stringToLCD("Go and visit dad -  The one on the same island as you are on");
                            delay(5000);
-                           //lcd.clear();
-                           lcd.setCursor(0,2);
+                           lcd.setCursor(0,3);
                            lcd.print("Good Bye");
                            delay(5000);
                            digitalWrite(POLULUPIN,HIGH);
@@ -418,34 +415,73 @@ void loop() {
                       }
                   }
             break; 
+
             case 2: // 3rd mission
+                  if (age < 1000) { 
+                      unsigned long distance = gps.distance_between(flat,flon,MOM_LAT,MOM_LON);
+                      if (distance < MOM_THRESHOLD) {
+                         stringToLCD("You've made it to.. moms house"); 
+                         delay(5000);
+                         stringToLCD("Did you take the carall this way??"); 
+                         delay(5000);
+                         stringToLCD("Stand by for your   next mission");
+                         delay(5000);
+                         stringToLCD("You're getting closeto the end");
+                         delay(5000);
+                         tasknr++;
+                         EEPROM.write(1,tasknr);
+                         mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
+                      } else {
+                           stringToLCD("Go and visit mom -  The one in the same country as you are in");
+                           delay(5000);
+                           lcd.setCursor(0,3);
+                           lcd.print("Good Bye");
+                           delay(5000);
+                           digitalWrite(POLULUPIN,HIGH);
+                           delay(100);
+                           gamestate = 3; // switch to message if running on external power
+                      }
+                  }
+            break; 
+
+            case 3: // 4th mission
                   if (age < 1000) { 
                     // test on the date - are we on or after the correct date, go ahead an open
                     // - otherwise tell the user to wait for the correct date
                     // we alreday have the date set in the Time module (.. somewhere in the belly of the arduino)
-                    // so we need to see if the year, month and date is correct
+                    // so we need to see if the year, month and date is correct - this is done by converting to UXtime
                     if (rightnow > cutoff) {
-                        stringToLCD("Congratulations!");
-                        delay(3000);
-                        stringToLCD("You made it through");
-                        delay(3000);
-                        stringToLCD("Stand by...");
-                        delay(3000);
-                        stringToLCD("The box will open..");
-                        delay(2000);
+/*                        
+                        stringToLCD("Congratulations!    You should now be   married!");
+                        delay(5000);
+                        stringToLCD("You can now show    people this box and tell them about youradventures..");
+                        delay(5000);
+                        stringToLCD("Before you can open this box there is   something you shouldknow..");
+                        delay(5000);
+                        stringToLCD("Someone came to the party without no..");
+                        delay(5000);
+                        stringToLCD("You might already   know who it is, but take a guess..");
+                        delay(5000);
+                        stringToLCD("Did you guess it... ?");
+                        delay(5000);
+                        stringToLCD("In any case, the boxwill now open.");
+                        delay(5000);
+                        stringToLCD("The display will    blink slightly and  you will hear a buz-zing sound.");
+                        delay(5000);
+*/
+                        lcd.clear(); lcd.setCursor(0,0);lcd.print("Tillykke");
                         gamestate = 2;
                         EEPROM.write(0,gamestate); // setting gs to 2
-                        delay(3000);
+                        delay(300);
                         mastertimerstart = millis(); // resetting time just in case the GPS-signal dies for a bit
                       } else {
-                        stringToLCD("You can open this box on the 19th after 15:00");
+                        stringToLCD("You can open this.. box after you are.. married");
                         delay(5000);
                         //lcd.clear();
                         lcd.setCursor(0,3);
                         lcd.print("Good Bye");
                         delay(5000);
                         digitalWrite(POLULUPIN,HIGH);
-                        delay(100);
                         gamestate = 3; // switch to message if running on external power
                       }
                   }
@@ -467,8 +503,6 @@ void loop() {
         lcd.setCursor(0,1);
         lcd.print("Congratulations!");
         lcd.setCursor(0,2);
-        delay(2000);
-        lcd.print("Good Bye!");
         delay(3000);
         digitalWrite(POLULUPIN,HIGH);
         delay(100);
