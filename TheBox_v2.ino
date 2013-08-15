@@ -80,10 +80,10 @@ const int offset = 2; // we're in UTC+2 now
 static const float FAABORG_LAT = 55.094878, FAABORG_LON = 10.237732;
 static const int FAABORG_THRESHOLD = 1000; // required minimum distance to Faaborg havn
 
-static const float DAD_LAT = 55.356175, DAD_LON = 10.728353;
+static const float DAD_LAT = 55.354605, DAD_LON = 10.728463;
 static const int DAD_THRESHOLD = 500; // required minimum distance to DAD 
 
-static const float MOM_LAT = 56.279542, MOM_LON = 9.434083;
+static const float MOM_LAT = 56.279952, MOM_LON = 9.434583
 static const int MOM_THRESHOLD = 500;
 
 // dateline to cross before the box can be opened
