@@ -83,7 +83,11 @@ static const int FAABORG_THRESHOLD = 1000; // required minimum distance to Faabo
 static const float DAD_LAT = 55.354605, DAD_LON = 10.728463;
 static const int DAD_THRESHOLD = 500; // required minimum distance to DAD 
 
+<<<<<<< HEAD:TheBox.ino
 static const float MOM_LAT = 56.279952, MOM_LON = 9.434583;
+=======
+static const float MOM_LAT = 56.279952, MOM_LON = 9.434583
+>>>>>>> 625b61551b78d6067cea9cfc80a8301cc0531431:TheBox.ino
 static const int MOM_THRESHOLD = 500;
 
 // dateline to cross before the box can be opened
